@@ -5,7 +5,7 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  sourcesDirectory: ./terraform
+  sourcesDirectory: fpw_terraform
   terraformVersion: 1.2.1
   azureAD: true
 
@@ -13,7 +13,7 @@ steps:
   - bash: |
       set -e
       mkdir -p $(Build.StagingDirectory)/$(sourcesDirectory)/
-      cp -r $(Build.SourcesDirectory)/$(sourcesDirectory)/* $(Build.SourcesDirectory)/$(sourcesDirectory)/.terraform.lock.hcl $(Build.StagingDirectory)/$(sourcesDirectory)/ 2>/dev/null || :
+      cp -r $(Build.SourcesDirectory)/* $(Build.SourcesDirectory)/.terraform.lock.hcl $(Build.StagingDirectory)/$(sourcesDirectory)/ 2>/dev/null || :
     displayName: Prepare Artifacts
     
   - bash: |
@@ -46,7 +46,10 @@ steps:
       set -e
       terraform plan -out $(Build.StagingDirectory)/tf.plan | tee $(Build.StagingDirectory)/tf.plan.txt
     displayName: Terraform plan
-    workingDirectory: $(Build.StagingDirectory)/$(sourcesDirectory)
+    workingDirectory: $(Build.StagingDirectory)/$(sourcesDirectory)    
+    env:
+      TF_VAR_password: $(password)
+      TF_VAR_username: $(username)
 
   - bash: |
       set -e
