@@ -1,0 +1,55 @@
+trigger: 
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  sourcesDirectory: ./terraform
+  terraformVersion: 1.2.1
+  azureAD: true
+
+steps:
+  - bash: |
+      set -e
+      mkdir -p $(Build.StagingDirectory)/$(sourcesDirectory)/
+      cp -r $(Build.SourcesDirectory)/$(sourcesDirectory)/* $(Build.SourcesDirectory)/$(sourcesDirectory)/.terraform.lock.hcl $(Build.StagingDirectory)/$(sourcesDirectory)/ 2>/dev/null || :
+    displayName: Prepare Artifacts
+    
+  - bash: |
+      set -e             
+      echo "##vso[task.setvariable variable=ARM_CLIENT_SECRET]$(APP_SECRET)"
+      echo "##vso[task.setvariable variable=ARM_CLIENT_ID]$(APP_ID)"
+      echo "##vso[task.setvariable variable=ARM_TENANT_ID]$(TENANT_ID)"
+      echo "##vso[task.setvariable variable=ARM_USE_AZUREAD]$(azureAD)"          
+    displayName: Configure AZURE LOGIN Credentials 
+
+  - bash: |
+      set -e
+      az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    displayName: Authenticate to AZURE
+  
+  - task: TerraformInstaller@0
+    inputs:
+      terraformVersion: $(terraformVersion)
+    displayName: Install Terraform
+
+  - bash: |
+      set -e
+      terraform version
+      terraform init -no-color 
+      terraform validate -no-color
+    displayName: Terraform Init and Validate
+    workingDirectory: $(Build.StagingDirectory)/$(sourcesDirectory)
+
+  - bash: |
+      set -e
+      terraform plan -out $(Build.StagingDirectory)/tf.plan | tee $(Build.StagingDirectory)/tf.plan.txt
+    displayName: Terraform plan
+    workingDirectory: $(Build.StagingDirectory)/$(sourcesDirectory)
+
+  - bash: |
+      set -e
+      terraform apply -out $(Build.StagingDirectory)/tf.plan 
+    displayName: Terraform Apply
+    workingDirectory: $(Build.StagingDirectory)/$(sourcesDirectory)
